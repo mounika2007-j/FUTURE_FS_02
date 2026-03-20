@@ -154,6 +154,11 @@ td.email-cell{color:var(--text-3);font-size:0.78rem}
 /* LOADING SPINNER */
 .spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.6s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+@media(max-width:500px){
+  .action-cell{
+    flex-direction:column;
+  }
+}
 </style>
 </head>
 <body>
@@ -263,193 +268,217 @@ td.email-cell{color:var(--text-3);font-size:0.78rem}
 
 <div class="toast-wrap" id="toastWrap"></div>
 
-<script>
+  <script>
 /* ─── CONFIG ─── */
-const API = "http://localhost:5000/api";
+const API = "/api";   // ✅ FIXED for deployment
 
 /* ─── THEME ─── */
 const html = document.documentElement;
 let isDark = localStorage.getItem("crm_theme") === "dark";
+
 function applyTheme() {
   html.setAttribute("data-theme", isDark ? "dark" : "light");
   document.getElementById("toggleThumb").textContent = isDark ? "🌙" : "☀️";
   localStorage.setItem("crm_theme", isDark ? "dark" : "light");
 }
 applyTheme();
-document.getElementById("themeToggle").addEventListener("click", () => { isDark = !isDark; applyTheme(); });
+
+document.getElementById("themeToggle").addEventListener("click", () => {
+  isDark = !isDark;
+  applyTheme();
+});
 
 /* ─── TOAST ─── */
 function toast(msg, type = "success") {
   const wrap = document.getElementById("toastWrap");
   const el = document.createElement("div");
   el.className = "toast";
-  el.innerHTML = `<span>${type === "success" ? "✓" : type === "error" ? "✕" : "ℹ"}</span> ${msg}`;
+  el.innerHTML = `<span>${type === "success" ? "✓" : "✕"}</span> ${msg}`;
   wrap.appendChild(el);
-  setTimeout(() => { el.classList.add("out"); setTimeout(() => el.remove(), 300); }, 2800);
+  setTimeout(() => {
+    el.classList.add("out");
+    setTimeout(() => el.remove(), 300);
+  }, 2500);
 }
 
 /* ─── STATS ─── */
 function bumpStat(id) {
   const el = document.getElementById(id);
-  el.classList.remove("bump"); void el.offsetWidth; el.classList.add("bump");
+  el.classList.remove("bump");
+  void el.offsetWidth;
+  el.classList.add("bump");
 }
+
 async function loadStats() {
   try {
     const res = await fetch(`${API}/stats`);
     const s = await res.json();
+
     ["Total","New","Contacted","Converted"].forEach(k => {
       const el = document.getElementById("stat" + k);
       const val = s[k.toLowerCase()];
-      if (el.textContent !== String(val)) { el.textContent = val; bumpStat("stat" + k); }
+      if (el.textContent !== String(val)) {
+        el.textContent = val;
+        bumpStat("stat" + k);
+      }
     });
+
     const t = s.total;
-    document.getElementById("navChip").textContent = `${t} lead${t !== 1 ? "s" : ""}`;
-  } catch { /* backend may not be running */ }
+    document.getElementById("navChip").textContent = `${t} leads`;
+  } catch {
+    console.log("Stats load failed");
+  }
 }
 
-/* ─── RENDER TABLE ─── */
-const STATUS_NEXT  = { new:"contacted", contacted:"converted", converted:"new" };
-const STATUS_NEXT_LABEL = { new:"→ Contacted", contacted:"→ Converted", converted:"→ New" };
+/* ─── TABLE ─── */
+const STATUS_NEXT = {
+  new: "contacted",
+  contacted: "converted",
+  converted: "new"
+};
+
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;");
+}
 
 function renderTable(customers) {
   const tbody = document.getElementById("tableBody");
   const empty = document.getElementById("emptyState");
+
   tbody.innerHTML = "";
 
   if (!customers.length) {
     empty.style.display = "";
     return;
   }
+
   empty.style.display = "none";
 
   customers.forEach((c, i) => {
     const tr = document.createElement("tr");
+
     tr.innerHTML = `
       <td>${i + 1}</td>
-      <td class="name-cell">${escHtml(c.name)}</td>
-      <td class="email-cell">${escHtml(c.email)}</td>
-      <td>${escHtml(c.phone || "—")}</td>
-      <td><span class="badge badge-${c.status}">${c.status}</span></td>
+      <td>${escHtml(c.name)}</td>
+      <td>${escHtml(c.email)}</td>
+      <td>${escHtml(c.phone || "-")}</td>
+      <td>${c.status}</td>
       <td class="action-cell">
-        <button class="btn-status" data-id="${c.id}" data-next="${STATUS_NEXT[c.status]}">${STATUS_NEXT_LABEL[c.status]}</button>
-        <button class="btn-delete" data-id="${c.id}">Delete</button>
-      </td>`;
+        <button onclick="changeStatus(${c.id}, '${STATUS_NEXT[c.status]}')">
+          Change
+        </button>
+        <button onclick="deleteCustomer(${c.id})">Delete</button>
+      </td>
+    `;
+
     tbody.appendChild(tr);
   });
-
-  tbody.querySelectorAll(".btn-status").forEach(btn => btn.addEventListener("click", () => advanceStatus(+btn.dataset.id, btn.dataset.next)));
-  tbody.querySelectorAll(".btn-delete").forEach(btn => btn.addEventListener("click", () => deleteCustomer(+btn.dataset.id)));
-}
-
-function escHtml(s) {
-  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 }
 
 /* ─── LOAD CUSTOMERS ─── */
-let activeFilter = "all";
-let searchDebounce;
-
 async function loadCustomers() {
-  const q = document.getElementById("searchInput").value.trim();
-  const params = new URLSearchParams();
-  if (activeFilter !== "all") params.set("status", activeFilter);
-  if (q) params.set("q", q);
+  const tbody = document.getElementById("tableBody");
+
+  // ✅ Loading state
+  tbody.innerHTML = "<tr><td colspan='6'>Loading...</td></tr>";
+
   try {
-    const res = await fetch(`${API}/customers?${params}`);
-    if (!res.ok) throw new Error();
-    renderTable(await res.json());
+    const res = await fetch(`${API}/customers`);
+    const data = await res.json();
+
+    renderTable(data);
   } catch {
-    toast("Could not reach backend. Is Flask running?", "error");
+    toast("Server not reachable", "error");
+
+    // ✅ retry automatically
+    setTimeout(loadCustomers, 3000);
   }
 }
 
 /* ─── ADD CUSTOMER ─── */
 document.getElementById("btnAdd").addEventListener("click", async () => {
-  const name  = document.getElementById("inpName").value.trim();
+  const name = document.getElementById("inpName").value.trim();
   const email = document.getElementById("inpEmail").value.trim();
   const phone = document.getElementById("inpPhone").value.trim();
   const status = document.getElementById("inpStatus").value;
 
-  let valid = true;
-  document.getElementById("inpName").classList.toggle("error", !name);
-  document.getElementById("errName").classList.toggle("show", !name);
-  if (!name) valid = false;
+  // ✅ validation
+  if (!name || name.length > 50) {
+    toast("Invalid name", "error");
+    return;
+  }
 
-  const emailOk = email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  document.getElementById("inpEmail").classList.toggle("error", !emailOk);
-  document.getElementById("errEmail").classList.toggle("show", !emailOk);
-  if (!emailOk) valid = false;
-
-  if (!valid) return;
-
-  const btn = document.getElementById("btnAdd");
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> Adding…';
+  if (!email.includes("@")) {
+    toast("Invalid email", "error");
+    return;
+  }
 
   try {
     const res = await fetch(`${API}/customers`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {"Content-Type": "application/json"},
       body: JSON.stringify({ name, email, phone, status })
     });
-    const data = await res.json();
-    if (!res.ok) { toast(data.error || "Error adding customer", "error"); return; }
-    ["inpName","inpEmail","inpPhone"].forEach(id => document.getElementById(id).value = "");
-    document.getElementById("inpStatus").value = "new";
-    toast(`${data.name} added successfully`);
-    await Promise.all([loadCustomers(), loadStats()]);
+
+    if (!res.ok) throw new Error();
+
+    toast("Customer added");
+
+    // reset
+    document.getElementById("inpName").value = "";
+    document.getElementById("inpEmail").value = "";
+    document.getElementById("inpPhone").value = "";
+
+    loadCustomers();
+    loadStats();
+
   } catch {
-    toast("Network error", "error");
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Customer`;
+    toast("Error adding customer", "error");
   }
 });
 
-/* ─── ADVANCE STATUS ─── */
-async function advanceStatus(id, nextStatus) {
+/* ─── STATUS UPDATE ─── */
+async function changeStatus(id, newStatus) {
+  if (!confirm("Change status?")) return;   // ✅ confirmation
+
   try {
-    const res = await fetch(`${API}/customers/${id}`, {
+    await fetch(`${API}/customers/${id}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: nextStatus })
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ status: newStatus })
     });
-    if (!res.ok) throw new Error();
-    toast(`Status updated to ${nextStatus}`);
-    await Promise.all([loadCustomers(), loadStats()]);
+
+    toast("Status updated");
+
+    loadCustomers();
+    loadStats();
+
   } catch {
-    toast("Failed to update status", "error");
+    toast("Failed", "error");
   }
 }
 
 /* ─── DELETE ─── */
 async function deleteCustomer(id) {
   if (!confirm("Delete this customer?")) return;
+
   try {
-    const res = await fetch(`${API}/customers/${id}`, { method: "DELETE" });
-    if (!res.ok) throw new Error();
-    toast("Customer deleted", "info");
-    await Promise.all([loadCustomers(), loadStats()]);
+    await fetch(`${API}/customers/${id}`, {
+      method: "DELETE"
+    });
+
+    toast("Deleted");
+
+    loadCustomers();
+    loadStats();
+
   } catch {
-    toast("Failed to delete customer", "error");
+    toast("Delete failed", "error");
   }
 }
-
-/* ─── FILTER BUTTONS ─── */
-document.querySelectorAll(".f-btn").forEach(btn => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".f-btn").forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-    activeFilter = btn.dataset.filter;
-    loadCustomers();
-  });
-});
-
-/* ─── SEARCH ─── */
-document.getElementById("searchInput").addEventListener("input", () => {
-  clearTimeout(searchDebounce);
-  searchDebounce = setTimeout(loadCustomers, 280);
-});
 
 /* ─── INIT ─── */
 loadCustomers();
