@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Mini CRM Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+/* ── Variables ── */
+:root {
+  --bg:         #f0f2f5;
+  --bg-card:    #ffffff;
+  --bg-input:   #f7f8fa;
+  --bg-table:   #fafbfc;
+  --border:     #e4e8ee;
+  --border-focus:#6c63ff;
+  --text-1:     #111827;
+  --text-2:     #4b5563;
+  --text-3:     #9ca3af;
+  --accent:     #6c63ff;
+  --accent-2:   #8b83ff;
+  --green:      #10b981;
+  --red:        #ef4444;
+  --orange:     #f59e0b;
+  --blue:       #3b82f6;
+  --shadow-sm:  0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md:  0 4px 16px rgba(0,0,0,0.08);
+  --shadow-lg:  0 8px 32px rgba(0,0,0,0.10);
+  --radius:     14px;
+  --radius-sm:  8px;
+  --t:          0.22s;
+  --ease:       cubic-bezier(0.4,0,0.2,1);
+}
+[data-theme="dark"] {
+  --bg:         #0f1117;
+  --bg-card:    #1a1d27;
+  --bg-input:   #22263a;
+  --bg-table:   #1e2130;
+  --border:     #2e3347;
+  --text-1:     #f1f3f9;
+  --text-2:     #9aa0b8;
+  --text-3:     #555e7a;
+  --shadow-sm:  0 1px 3px rgba(0,0,0,0.25);
+  --shadow-md:  0 4px 16px rgba(0,0,0,0.35);
+  --shadow-lg:  0 8px 32px rgba(0,0,0,0.45);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'DM Mono',monospace;background:var(--bg);color:var(--text-1);min-height:100vh;transition:background var(--t) var(--ease),color var(--t) var(--ease)}
+input,select,button{font-family:inherit;outline:none;border:none}
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px}
+
+/* NAV */
+.nav{position:sticky;top:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:0 clamp(1rem,4vw,2.5rem);height:56px;background:var(--bg-card);border-bottom:1px solid var(--border);box-shadow:var(--shadow-sm);transition:background var(--t) var(--ease),border-color var(--t) var(--ease)}
+.nav-title{font-family:'Syne',sans-serif;font-size:1rem;font-weight:700;color:var(--text-1);letter-spacing:0.02em;display:flex;align-items:center;gap:0.55rem}
+.nav-title .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px rgba(108,99,255,0.2);animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 3px rgba(108,99,255,0.2)}50%{box-shadow:0 0 0 6px rgba(108,99,255,0.1)}}
+.theme-toggle{width:44px;height:24px;border-radius:99px;background:var(--border);position:relative;cursor:pointer;transition:background var(--t) var(--ease);border:none;flex-shrink:0}
+[data-theme="dark"] .theme-toggle{background:var(--accent)}
+.toggle-thumb{position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform var(--t) var(--ease);display:flex;align-items:center;justify-content:center;font-size:10px}
+[data-theme="dark"] .toggle-thumb{transform:translateX(20px)}
+.nav-right{display:flex;align-items:center;gap:1rem}
+.total-chip{padding:0.3rem 0.7rem;border-radius:99px;background:rgba(108,99,255,0.1);border:1px solid rgba(108,99,255,0.2);color:var(--accent);font-size:0.7rem;font-weight:600;font-family:'Syne',sans-serif;letter-spacing:0.06em}
+
+/* MAIN */
+.main{max-width:1100px;margin:0 auto;padding:clamp(1.5rem,4vw,2.5rem) clamp(1rem,4vw,2rem);display:flex;flex-direction:column;gap:1.6rem}
+
+/* STATS */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem}
+@media(max-width:700px){.stats-grid{grid-template-columns:repeat(2,1fr)}}
+.stat-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:1.4rem 1.2rem;display:flex;flex-direction:column;align-items:center;gap:0.5rem;text-align:center;box-shadow:var(--shadow-sm);transition:all var(--t) var(--ease);cursor:default;position:relative;overflow:hidden}
+.stat-card::before{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;transition:opacity var(--t) var(--ease);opacity:0}
+.stat-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-md)}
+.stat-card:hover::before{opacity:1}
+.stat-card.total::before{background:var(--accent)}
+.stat-card.new::before{background:var(--blue)}
+.stat-card.contacted::before{background:var(--orange)}
+.stat-card.converted::before{background:var(--green)}
+.stat-icon{font-size:1.4rem;line-height:1}
+.stat-label{font-family:'Syne',sans-serif;font-size:0.72rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-3)}
+.stat-value{font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;color:var(--accent);line-height:1;transition:transform 0.3s var(--ease)}
+.stat-value.bump{animation:bumpUp 0.35s var(--ease)}
+@keyframes bumpUp{0%{transform:scale(1)}40%{transform:scale(1.3)}100%{transform:scale(1)}}
+
+/* CARD */
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:1.6rem;box-shadow:var(--shadow-sm);transition:background var(--t) var(--ease),border-color var(--t) var(--ease)}
+.card-title{font-family:'Syne',sans-serif;font-size:0.95rem;font-weight:700;letter-spacing:0.04em;color:var(--text-1);margin-bottom:1.2rem;display:flex;align-items:center;gap:0.5rem}
+.card-title-dot{width:6px;height:6px;border-radius:50%;background:var(--accent)}
+
+/* FORM */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0.75rem}
+@media(max-width:600px){.form-grid{grid-template-columns:1fr}}
+.f-input{width:100%;padding:0.7rem 1rem;background:var(--bg-input);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text-1);font-size:0.83rem;transition:border-color var(--t) var(--ease),box-shadow var(--t) var(--ease),background var(--t) var(--ease)}
+.f-input::placeholder{color:var(--text-3)}
+.f-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(108,99,255,0.15);background:var(--bg-card)}
+.f-input.error{border-color:var(--red)}
+.f-select{width:100%;padding:0.7rem 1rem;background:var(--bg-input);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text-1);font-size:0.83rem;font-family:inherit;cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 0.9rem center;transition:border-color var(--t) var(--ease)}
+.f-select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(108,99,255,0.15)}
+.form-row{display:flex;gap:0.75rem;align-items:flex-end;margin-top:0.75rem}
+.btn-add{padding:0.7rem 1.5rem;background:var(--accent);color:#fff;border-radius:var(--radius-sm);font-family:'Syne',sans-serif;font-size:0.82rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;transition:all var(--t) var(--ease);white-space:nowrap;display:flex;align-items:center;gap:0.4rem;box-shadow:0 4px 14px rgba(108,99,255,0.3)}
+.btn-add:hover{background:var(--accent-2);transform:translateY(-1px);box-shadow:0 6px 20px rgba(108,99,255,0.4)}
+.btn-add:active{transform:translateY(0)}
+.btn-add:disabled{opacity:0.6;cursor:not-allowed;transform:none}
+.error-msg{font-size:0.72rem;color:var(--red);margin-top:0.3rem;display:none}
+.error-msg.show{display:block}
+
+/* SEARCH & FILTER */
+.list-controls{display:flex;gap:0.75rem;flex-wrap:wrap;margin-bottom:1rem;align-items:center}
+.search-wrap{position:relative;flex:1;min-width:160px}
+.search-icon{position:absolute;left:0.75rem;top:50%;transform:translateY(-50%);color:var(--text-3);pointer-events:none}
+.search-input{width:100%;padding:0.6rem 1rem 0.6rem 2.2rem;background:var(--bg-input);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text-1);font-family:inherit;font-size:0.8rem;transition:border-color var(--t) var(--ease),background var(--t) var(--ease)}
+.search-input::placeholder{color:var(--text-3)}
+.search-input:focus{border-color:var(--accent);outline:none;background:var(--bg-card)}
+.filter-btns{display:flex;gap:0.4rem;flex-wrap:wrap}
+.f-btn{padding:0.45rem 0.9rem;border-radius:99px;border:1.5px solid var(--border);background:var(--bg-input);color:var(--text-2);font-family:'Syne',sans-serif;font-size:0.7rem;font-weight:600;letter-spacing:0.07em;text-transform:uppercase;cursor:pointer;transition:all var(--t) var(--ease)}
+.f-btn:hover{border-color:var(--accent);color:var(--accent)}
+.f-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 3px 10px rgba(108,99,255,0.3)}
+
+/* TABLE */
+.table-wrap{overflow-x:auto;border-radius:var(--radius-sm);border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;font-size:0.82rem}
+thead{background:var(--bg-table);border-bottom:1px solid var(--border)}
+thead th{padding:0.75rem 1rem;text-align:left;font-family:'Syne',sans-serif;font-size:0.68rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3);white-space:nowrap}
+tbody tr{border-bottom:1px solid var(--border);transition:background var(--t) var(--ease);animation:rowIn 0.3s var(--ease) both}
+@keyframes rowIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:var(--bg-table)}
+td{padding:0.85rem 1rem;color:var(--text-2);vertical-align:middle}
+td.name-cell{color:var(--text-1);font-weight:500}
+td.email-cell{color:var(--text-3);font-size:0.78rem}
+.badge{display:inline-flex;align-items:center;gap:0.3rem;padding:0.22rem 0.65rem;border-radius:99px;font-family:'Syne',sans-serif;font-size:0.62rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;white-space:nowrap}
+.badge-new{background:rgba(59,130,246,0.12);color:var(--blue)}
+.badge-contacted{background:rgba(245,158,11,0.12);color:var(--orange)}
+.badge-converted{background:rgba(16,185,129,0.12);color:var(--green)}
+.badge::before{content:'';width:5px;height:5px;border-radius:50%;background:currentColor}
+.action-cell{display:flex;gap:0.4rem;align-items:center}
+.btn-status{padding:0.3rem 0.65rem;border-radius:var(--radius-sm);font-family:'Syne',sans-serif;font-size:0.62rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;cursor:pointer;border:1.5px solid var(--border);background:var(--bg-input);color:var(--text-2);transition:all var(--t) var(--ease)}
+.btn-status:hover{border-color:var(--accent);color:var(--accent)}
+.btn-delete{padding:0.3rem 0.65rem;border-radius:var(--radius-sm);font-family:'Syne',sans-serif;font-size:0.62rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;cursor:pointer;background:rgba(239,68,68,0.08);border:1.5px solid rgba(239,68,68,0.2);color:var(--red);transition:all var(--t) var(--ease)}
+.btn-delete:hover{background:var(--red);color:#fff;border-color:var(--red)}
+.empty-state{padding:3rem 1rem;text-align:center;color:var(--text-3)}
+.empty-state .empty-icon{font-size:2.5rem;margin-bottom:0.8rem;opacity:0.5}
+.empty-state p{font-size:0.82rem;font-family:'Syne',sans-serif}
+
+/* TOAST */
+.toast-wrap{position:fixed;bottom:1.5rem;right:1.5rem;display:flex;flex-direction:column;gap:0.5rem;z-index:9999;pointer-events:none}
+.toast{padding:0.65rem 1.1rem;border-radius:var(--radius-sm);background:var(--text-1);color:var(--bg);font-size:0.78rem;box-shadow:var(--shadow-lg);animation:toastIn 0.3s var(--ease) both;display:flex;align-items:center;gap:0.5rem}
+.toast.out{animation:toastOut 0.25s var(--ease) both}
+@keyframes toastIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+@keyframes toastOut{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(20px)}}
+
+/* LOADING SPINNER */
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-title">
+    <div class="dot"></div>
+    Mini CRM
+  </div>
+  <div class="nav-right">
+    <span class="total-chip" id="navChip">0 leads</span>
+    <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+      <div class="toggle-thumb" id="toggleThumb">☀️</div>
+    </button>
+  </div>
+</nav>
+
+<main class="main">
+
+  <!-- STATS -->
+  <div class="stats-grid">
+    <div class="stat-card total">
+      <div class="stat-icon">📊</div>
+      <div class="stat-label">Total</div>
+      <div class="stat-value" id="statTotal">—</div>
+    </div>
+    <div class="stat-card new">
+      <div class="stat-icon">🔵</div>
+      <div class="stat-label">New</div>
+      <div class="stat-value" id="statNew">—</div>
+    </div>
+    <div class="stat-card contacted">
+      <div class="stat-icon">📞</div>
+      <div class="stat-label">Contacted</div>
+      <div class="stat-value" id="statContacted">—</div>
+    </div>
+    <div class="stat-card converted">
+      <div class="stat-icon">✅</div>
+      <div class="stat-label">Converted</div>
+      <div class="stat-value" id="statConverted">—</div>
+    </div>
+  </div>
+
+  <!-- ADD CUSTOMER -->
+  <div class="card">
+    <div class="card-title"><div class="card-title-dot"></div>Add Customer</div>
+    <div class="form-grid">
+      <div>
+        <input class="f-input" id="inpName"  type="text"  placeholder="Full name"      autocomplete="off"/>
+        <div class="error-msg" id="errName">Name is required</div>
+      </div>
+      <div>
+        <input class="f-input" id="inpEmail" type="email" placeholder="Email address"  autocomplete="off"/>
+        <div class="error-msg" id="errEmail">Valid email required</div>
+      </div>
+      <div>
+        <input class="f-input" id="inpPhone" type="tel"   placeholder="Phone number"   autocomplete="off"/>
+      </div>
+      <div>
+        <select class="f-select" id="inpStatus">
+          <option value="new">🔵 New</option>
+          <option value="contacted">📞 Contacted</option>
+          <option value="converted">✅ Converted</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <button class="btn-add" id="btnAdd">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add Customer
+      </button>
+    </div>
+  </div>
+
+  <!-- CUSTOMER LIST -->
+  <div class="card">
+    <div class="card-title"><div class="card-title-dot"></div>Customer List</div>
+    <div class="list-controls">
+      <div class="search-wrap">
+        <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input class="search-input" id="searchInput" type="text" placeholder="Search customers…"/>
+      </div>
+      <div class="filter-btns">
+        <button class="f-btn active" data-filter="all">All</button>
+        <button class="f-btn" data-filter="new">New</button>
+        <button class="f-btn" data-filter="contacted">Contacted</button>
+        <button class="f-btn" data-filter="converted">Converted</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th><th>Name</th><th>Email</th><th>Phone</th><th>Status</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+      <div class="empty-state" id="emptyState" style="display:none">
+        <div class="empty-icon">👤</div>
+        <p>No customers yet. Add your first lead above.</p>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+/* ─── CONFIG ─── */
+const API = "http://localhost:5000/api";
+
+/* ─── THEME ─── */
+const html = document.documentElement;
+let isDark = localStorage.getItem("crm_theme") === "dark";
+function applyTheme() {
+  html.setAttribute("data-theme", isDark ? "dark" : "light");
+  document.getElementById("toggleThumb").textContent = isDark ? "🌙" : "☀️";
+  localStorage.setItem("crm_theme", isDark ? "dark" : "light");
+}
+applyTheme();
+document.getElementById("themeToggle").addEventListener("click", () => { isDark = !isDark; applyTheme(); });
+
+/* ─── TOAST ─── */
+function toast(msg, type = "success") {
+  const wrap = document.getElementById("toastWrap");
+  const el = document.createElement("div");
+  el.className = "toast";
+  el.innerHTML = `<span>${type === "success" ? "✓" : type === "error" ? "✕" : "ℹ"}</span> ${msg}`;
+  wrap.appendChild(el);
+  setTimeout(() => { el.classList.add("out"); setTimeout(() => el.remove(), 300); }, 2800);
+}
+
+/* ─── STATS ─── */
+function bumpStat(id) {
+  const el = document.getElementById(id);
+  el.classList.remove("bump"); void el.offsetWidth; el.classList.add("bump");
+}
+async function loadStats() {
+  try {
+    const res = await fetch(`${API}/stats`);
+    const s = await res.json();
+    ["Total","New","Contacted","Converted"].forEach(k => {
+      const el = document.getElementById("stat" + k);
+      const val = s[k.toLowerCase()];
+      if (el.textContent !== String(val)) { el.textContent = val; bumpStat("stat" + k); }
+    });
+    const t = s.total;
+    document.getElementById("navChip").textContent = `${t} lead${t !== 1 ? "s" : ""}`;
+  } catch { /* backend may not be running */ }
+}
+
+/* ─── RENDER TABLE ─── */
+const STATUS_NEXT  = { new:"contacted", contacted:"converted", converted:"new" };
+const STATUS_NEXT_LABEL = { new:"→ Contacted", contacted:"→ Converted", converted:"→ New" };
+
+function renderTable(customers) {
+  const tbody = document.getElementById("tableBody");
+  const empty = document.getElementById("emptyState");
+  tbody.innerHTML = "";
+
+  if (!customers.length) {
+    empty.style.display = "";
+    return;
+  }
+  empty.style.display = "none";
+
+  customers.forEach((c, i) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${i + 1}</td>
+      <td class="name-cell">${escHtml(c.name)}</td>
+      <td class="email-cell">${escHtml(c.email)}</td>
+      <td>${escHtml(c.phone || "—")}</td>
+      <td><span class="badge badge-${c.status}">${c.status}</span></td>
+      <td class="action-cell">
+        <button class="btn-status" data-id="${c.id}" data-next="${STATUS_NEXT[c.status]}">${STATUS_NEXT_LABEL[c.status]}</button>
+        <button class="btn-delete" data-id="${c.id}">Delete</button>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+
+  tbody.querySelectorAll(".btn-status").forEach(btn => btn.addEventListener("click", () => advanceStatus(+btn.dataset.id, btn.dataset.next)));
+  tbody.querySelectorAll(".btn-delete").forEach(btn => btn.addEventListener("click", () => deleteCustomer(+btn.dataset.id)));
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+/* ─── LOAD CUSTOMERS ─── */
+let activeFilter = "all";
+let searchDebounce;
+
+async function loadCustomers() {
+  const q = document.getElementById("searchInput").value.trim();
+  const params = new URLSearchParams();
+  if (activeFilter !== "all") params.set("status", activeFilter);
+  if (q) params.set("q", q);
+  try {
+    const res = await fetch(`${API}/customers?${params}`);
+    if (!res.ok) throw new Error();
+    renderTable(await res.json());
+  } catch {
+    toast("Could not reach backend. Is Flask running?", "error");
+  }
+}
+
+/* ─── ADD CUSTOMER ─── */
+document.getElementById("btnAdd").addEventListener("click", async () => {
+  const name  = document.getElementById("inpName").value.trim();
+  const email = document.getElementById("inpEmail").value.trim();
+  const phone = document.getElementById("inpPhone").value.trim();
+  const status = document.getElementById("inpStatus").value;
+
+  let valid = true;
+  document.getElementById("inpName").classList.toggle("error", !name);
+  document.getElementById("errName").classList.toggle("show", !name);
+  if (!name) valid = false;
+
+  const emailOk = email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  document.getElementById("inpEmail").classList.toggle("error", !emailOk);
+  document.getElementById("errEmail").classList.toggle("show", !emailOk);
+  if (!emailOk) valid = false;
+
+  if (!valid) return;
+
+  const btn = document.getElementById("btnAdd");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Adding…';
+
+  try {
+    const res = await fetch(`${API}/customers`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, email, phone, status })
+    });
+    const data = await res.json();
+    if (!res.ok) { toast(data.error || "Error adding customer", "error"); return; }
+    ["inpName","inpEmail","inpPhone"].forEach(id => document.getElementById(id).value = "");
+    document.getElementById("inpStatus").value = "new";
+    toast(`${data.name} added successfully`);
+    await Promise.all([loadCustomers(), loadStats()]);
+  } catch {
+    toast("Network error", "error");
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add Customer`;
+  }
+});
+
+/* ─── ADVANCE STATUS ─── */
+async function advanceStatus(id, nextStatus) {
+  try {
+    const res = await fetch(`${API}/customers/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: nextStatus })
+    });
+    if (!res.ok) throw new Error();
+    toast(`Status updated to ${nextStatus}`);
+    await Promise.all([loadCustomers(), loadStats()]);
+  } catch {
+    toast("Failed to update status", "error");
+  }
+}
+
+/* ─── DELETE ─── */
+async function deleteCustomer(id) {
+  if (!confirm("Delete this customer?")) return;
+  try {
+    const res = await fetch(`${API}/customers/${id}`, { method: "DELETE" });
+    if (!res.ok) throw new Error();
+    toast("Customer deleted", "info");
+    await Promise.all([loadCustomers(), loadStats()]);
+  } catch {
+    toast("Failed to delete customer", "error");
+  }
+}
+
+/* ─── FILTER BUTTONS ─── */
+document.querySelectorAll(".f-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".f-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    activeFilter = btn.dataset.filter;
+    loadCustomers();
+  });
+});
+
+/* ─── SEARCH ─── */
+document.getElementById("searchInput").addEventListener("input", () => {
+  clearTimeout(searchDebounce);
+  searchDebounce = setTimeout(loadCustomers, 280);
+});
+
+/* ─── INIT ─── */
+loadCustomers();
+loadStats();
+</script>
+</body>
+</html>
